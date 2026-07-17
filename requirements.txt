@@ -5,3 +5,6 @@ alembic
 python-dotenv
 psycopg2-binary
 email-validator
+oci
+pillow
+python-multipart

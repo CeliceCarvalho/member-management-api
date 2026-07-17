@@ -5,6 +5,7 @@ from app.routers.events import router as events_router
 from app.routers.groups import router as groups_router
 from app.routers.members import router as members_router
 from app.routers.reports import router as reports_router
+from app.routers.uploads import router as uploads_router
 
 app = FastAPI(title="Member Management API")
 
@@ -13,6 +14,7 @@ app.include_router(groups_router)
 app.include_router(events_router)
 app.include_router(attendances_router)
 app.include_router(reports_router)
+app.include_router(uploads_router)
 
 
 @app.get("/health")
