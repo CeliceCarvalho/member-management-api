@@ -11,6 +11,7 @@ services:
       OCI_REGION: sa-saopaulo-1
       OCI_NAMESPACE: gr9zqu6hnhpb
       OCI_BUCKET_NAME: member-images
+      CORS_ORIGINS: "*"
       PROFILE_IMAGE_MAX_SIZE: 5242880
       PROFILE_IMAGE_SIZE: 768
       PROFILE_IMAGE_QUALITY: 82
