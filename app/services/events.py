@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -110,9 +110,37 @@ def create_event(db: Session, event_data: EventCreate) -> EventResponse:
     return build_event_response(db, event)
 
 
-def list_events(db: Session) -> list[EventResponse]:
-    events = db.scalars(select(Event).order_by(Event.date, Event.start_time)).all()
-    return [build_event_response(db, event) for event in events]
+def list_events(
+    db: Session,
+    *,
+    page: int = 1,
+    page_size: int = 50,
+    search: str | None = None,
+    status_filter: str | None = None,
+    group_id: UUID | None = None,
+) -> tuple[list[EventResponse], int]:
+    query = select(Event)
+    count_query = select(func.count()).select_from(Event)
+
+    filters = []
+    if search:
+        filters.append(Event.name.ilike(f"%{search.strip()}%"))
+    if status_filter:
+        filters.append(Event.status == status_filter)
+    if group_id:
+        query = query.join(EventGroup, EventGroup.event_id == Event.id)
+        count_query = count_query.join(EventGroup, EventGroup.event_id == Event.id)
+        filters.append(EventGroup.group_id == group_id)
+
+    if filters:
+        query = query.where(*filters)
+        count_query = count_query.where(*filters)
+
+    total = db.scalar(count_query) or 0
+    events = db.scalars(
+        query.order_by(Event.date, Event.start_time).offset((page - 1) * page_size).limit(page_size)
+    ).all()
+    return [build_event_response(db, event) for event in events], total
 
 
 def get_event(db: Session, event_id: UUID) -> EventResponse:

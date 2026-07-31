@@ -2,7 +2,7 @@ from datetime import datetime
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -100,9 +100,35 @@ def create_group(db: Session, group_data: GroupCreate) -> GroupResponse:
     return build_group_response(db, group)
 
 
-def list_groups(db: Session) -> list[GroupResponse]:
-    groups = db.scalars(select(Group).order_by(Group.name)).all()
-    return [build_group_response(db, group) for group in groups]
+def list_groups(
+    db: Session,
+    *,
+    page: int = 1,
+    page_size: int = 50,
+    search: str | None = None,
+    type_filter: str | None = None,
+    active: bool | None = None,
+) -> tuple[list[GroupResponse], int]:
+    query = select(Group)
+    count_query = select(func.count()).select_from(Group)
+
+    filters = []
+    if search:
+        filters.append(Group.name.ilike(f"%{search.strip()}%"))
+    if type_filter:
+        filters.append(Group.type == type_filter)
+    if active is not None:
+        filters.append(Group.active.is_(active))
+
+    if filters:
+        query = query.where(*filters)
+        count_query = count_query.where(*filters)
+
+    total = db.scalar(count_query) or 0
+    groups = db.scalars(
+        query.order_by(Group.name).offset((page - 1) * page_size).limit(page_size)
+    ).all()
+    return [build_group_response(db, group) for group in groups], total
 
 
 def get_group(db: Session, group_id: UUID) -> GroupResponse:

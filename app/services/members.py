@@ -2,7 +2,7 @@ from datetime import date, datetime
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -95,9 +95,49 @@ def create_member(db: Session, member_data: MemberCreate) -> MemberResponse:
     return build_member_response(db, member)
 
 
-def list_members(db: Session) -> list[MemberResponse]:
-    members = db.scalars(select(Member).order_by(Member.name)).all()
-    return [build_member_response(db, member) for member in members]
+def list_members(
+    db: Session,
+    *,
+    page: int = 1,
+    page_size: int = 50,
+    search: str | None = None,
+    category: str | None = None,
+    group_id: UUID | None = None,
+) -> tuple[list[MemberResponse], int]:
+    query = select(Member)
+    count_query = select(func.count()).select_from(Member)
+
+    filters = []
+    if search:
+        term = f"%{search.strip()}%"
+        filters.append(or_(Member.name.ilike(term), Member.email.ilike(term)))
+    if category:
+        filters.append(Member.category == category)
+    if group_id:
+        query = query.join(
+            GroupParticipation,
+            GroupParticipation.member_id == Member.id,
+        )
+        count_query = count_query.join(
+            GroupParticipation,
+            GroupParticipation.member_id == Member.id,
+        )
+        filters.extend(
+            [
+                GroupParticipation.group_id == group_id,
+                GroupParticipation.active.is_(True),
+            ]
+        )
+
+    if filters:
+        query = query.where(*filters)
+        count_query = count_query.where(*filters)
+
+    total = db.scalar(count_query) or 0
+    members = db.scalars(
+        query.order_by(Member.name).offset((page - 1) * page_size).limit(page_size)
+    ).all()
+    return [build_member_response(db, member) for member in members], total
 
 
 def get_member(db: Session, member_id: UUID) -> MemberResponse:

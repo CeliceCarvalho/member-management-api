@@ -1,11 +1,12 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.schemas.attendance import AttendanceResponse, EventAttendanceCreate
 from app.schemas.event import EventCreate, EventResponse, EventUpdate
+from app.schemas.pagination import Page
 from app.services import events as event_service
 
 router = APIRouter(prefix="/events", tags=["events"])
@@ -16,9 +17,24 @@ def create_event(event_data: EventCreate, db: Session = Depends(get_db)):
     return event_service.create_event(db, event_data)
 
 
-@router.get("/", response_model=list[EventResponse])
-def list_events(db: Session = Depends(get_db)):
-    return event_service.list_events(db)
+@router.get("/", response_model=Page[EventResponse])
+def list_events(
+    db: Session = Depends(get_db),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
+    search: str | None = None,
+    status: str | None = None,
+    group_id: UUID | None = None,
+):
+    items, total = event_service.list_events(
+        db,
+        page=page,
+        page_size=page_size,
+        search=search,
+        status_filter=status,
+        group_id=group_id,
+    )
+    return Page[EventResponse](items=items, total=total, page=page, page_size=page_size)
 
 
 @router.get("/{event_id}", response_model=EventResponse)

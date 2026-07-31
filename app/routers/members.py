@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 from starlette.datastructures import UploadFile
@@ -8,6 +8,7 @@ from starlette.datastructures import UploadFile
 from app.database import get_db
 from app.schemas.event import EventResponse
 from app.schemas.member import MemberCreate, MemberResponse, MemberUpdate
+from app.schemas.pagination import Page
 from app.services import members as member_service
 from app.services.profile_images import (
     InvalidProfileImageError,
@@ -79,9 +80,24 @@ def validate_member_create(payload: object) -> MemberCreate:
         ) from exc
 
 
-@router.get("/", response_model=list[MemberResponse])
-def list_members(db: Session = Depends(get_db)):
-    return member_service.list_members(db)
+@router.get("/", response_model=Page[MemberResponse])
+def list_members(
+    db: Session = Depends(get_db),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
+    search: str | None = None,
+    category: str | None = None,
+    group_id: UUID | None = None,
+):
+    items, total = member_service.list_members(
+        db,
+        page=page,
+        page_size=page_size,
+        search=search,
+        category=category,
+        group_id=group_id,
+    )
+    return Page[MemberResponse](items=items, total=total, page=page, page_size=page_size)
 
 
 @router.get("/{member_id}", response_model=MemberResponse)
