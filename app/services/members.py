@@ -12,7 +12,7 @@ from app.models.group import Group
 from app.models.group_participation import GroupParticipation
 from app.models.member import Member
 from app.schemas.event import EventResponse
-from app.schemas.member import MemberCreate, MemberResponse, MemberUpdate
+from app.schemas.member import MemberCreate, MemberPresence, MemberResponse, MemberUpdate
 from app.services.events import build_event_response
 
 
@@ -33,9 +33,34 @@ def get_active_group_ids(db: Session, member_id: UUID) -> list[UUID]:
     ).all()
 
 
+def calculate_member_attendance_rate(db: Session, member_id: UUID) -> float:
+    total_events = db.scalar(select(func.count()).select_from(Event)) or 0
+    if not total_events:
+        return 0
+
+    total_present = db.scalar(
+        select(func.count(func.distinct(Attendance.event_id))).where(
+            Attendance.member_id == member_id,
+        )
+    ) or 0
+
+    return round(total_present / total_events * 100, 2)
+
+
 def build_member_response(db: Session, member: Member) -> MemberResponse:
+    attendance_rate = calculate_member_attendance_rate(db, member.id)
+    presence = (
+        MemberPresence.FREQUENT
+        if attendance_rate >= 70
+        else MemberPresence.ABSENT
+    )
+
     return MemberResponse.model_validate(member).model_copy(
-        update={"group_ids": get_active_group_ids(db, member.id)}
+        update={
+            "group_ids": get_active_group_ids(db, member.id),
+            "presence": presence,
+            "attendance_rate": attendance_rate,
+        }
     )
 
 

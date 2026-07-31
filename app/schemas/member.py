@@ -1,9 +1,15 @@
 from datetime import date, datetime
+from enum import Enum
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field
 
 from app.models.member import MemberCategory, MemberStatus
+
+
+class MemberPresence(str, Enum):
+    FREQUENT = "FREQUENT"
+    ABSENT = "ABSENT"
 
 
 class MemberBase(BaseModel):
@@ -36,6 +42,8 @@ class MemberResponse(MemberBase):
     id: UUID
     age: int
     status: MemberStatus
+    presence: MemberPresence = MemberPresence.ABSENT
+    attendance_rate: float = 0
     registration_date: datetime
     group_ids: list[UUID] = Field(default_factory=list)
 
