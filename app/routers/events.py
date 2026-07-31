@@ -1,4 +1,5 @@
 from uuid import UUID
+from datetime import date
 
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
@@ -25,6 +26,8 @@ def list_events(
     search: str | None = None,
     status: str | None = None,
     group_id: UUID | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
 ):
     items, total = event_service.list_events(
         db,
@@ -33,6 +36,8 @@ def list_events(
         search=search,
         status_filter=status,
         group_id=group_id,
+        date_from=date_from,
+        date_to=date_to,
     )
     return Page[EventResponse](items=items, total=total, page=page, page_size=page_size)
 

@@ -1,3 +1,4 @@
+from datetime import date
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -118,6 +119,8 @@ def list_events(
     search: str | None = None,
     status_filter: str | None = None,
     group_id: UUID | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
 ) -> tuple[list[EventResponse], int]:
     query = select(Event)
     count_query = select(func.count()).select_from(Event)
@@ -127,6 +130,10 @@ def list_events(
         filters.append(Event.name.ilike(f"%{search.strip()}%"))
     if status_filter:
         filters.append(Event.status == status_filter)
+    if date_from:
+        filters.append(Event.date >= date_from)
+    if date_to:
+        filters.append(Event.date <= date_to)
     if group_id:
         query = query.join(EventGroup, EventGroup.event_id == Event.id)
         count_query = count_query.join(EventGroup, EventGroup.event_id == Event.id)
