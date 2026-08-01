@@ -34,13 +34,21 @@ def get_active_group_ids(db: Session, member_id: UUID) -> list[UUID]:
 
 
 def calculate_member_attendance_rate(db: Session, member_id: UUID) -> float:
-    total_events = db.scalar(select(func.count()).select_from(Event)) or 0
+    today = date.today()
+    total_events = db.scalar(
+        select(func.count())
+        .select_from(Event)
+        .where(Event.date <= today)
+    ) or 0
     if not total_events:
         return 0
 
     total_present = db.scalar(
-        select(func.count(func.distinct(Attendance.event_id))).where(
+        select(func.count(func.distinct(Attendance.event_id)))
+        .join(Event, Event.id == Attendance.event_id)
+        .where(
             Attendance.member_id == member_id,
+            Event.date <= today,
         )
     ) or 0
 
